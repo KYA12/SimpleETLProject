@@ -71,6 +71,10 @@ public class TripEtlService
 
         // Show final row count
         PrintRowCountFromDatabase();
+
+        // Create lock file so ETL will not run again automatically
+        File.WriteAllText(Path.Combine("..", "..", "..", "etl.lock"), $"Imported: {DateTime.UtcNow:O}");
+        Console.WriteLine("Checkpoint saved (etl.lock). Future runs will skip CSV loading.");
     }
 
     private void DedupeInDatabase()
@@ -464,5 +468,19 @@ ORDER BY tpep_pickup_datetime DESC;
             Console.WriteLine(
                 $"{pickup:yyyy-MM-dd HH:mm}\t{dropoff:yyyy-MM-dd HH:mm}\t{distance:F2}\t{passengers}\t\t{pu}\t{@do}\t{fare:F2}\t{tip:F2}");
         }
+    }
+
+    public bool DoesDatabaseExist()
+    {
+        using var conn = new SqlConnection("Server=KYA123;Trusted_Connection=True;TrustServerCertificate=True;");
+        conn.Open();
+
+        using var cmd = new SqlCommand(@"
+        SELECT COUNT(*) 
+        FROM sys.databases 
+        WHERE name = 'SimpleETLDB';", conn);
+
+        int count = (int)cmd.ExecuteScalar();
+        return count > 0;
     }
 }
