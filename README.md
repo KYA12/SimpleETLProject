@@ -50,17 +50,6 @@ SimpleETLProject/
 
 ### 1. Importing CSV data into MS SQL with selected columns
 
-Only the required columns are processed:
-1. tpep_pickup_datetime  
-2. tpep_dropoff_datetime  
-3. passenger_count  
-4. trip_distance  
-5. store_and_fwd_flag  
-6. PULocationID  
-7. DOLocationID  
-8. fare_amount  
-9. tip_amount
-
 TripCsvDataReader reads and validates these column names from the CSV header.
 Each CSV row is parsed into a TripRecord and streamed directly into SQL Server using SqlBulkCopy.
 
