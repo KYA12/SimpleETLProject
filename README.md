@@ -95,13 +95,29 @@ All reporting queries run against the **`dbo.Trips`** table (the deduplicated ta
 
 Duplicates are defined by a combination of `pickup_datetime`(tpep_pickup_datetime), `dropoff_datetime`(tpep_dropoff_datetime), and `passenger_count`(passenger_count).
 
-DedupeInDatabase():
-1. partitions rows using ROW_NUMBER()
-2. inserts rn = 1 rows into dbo.Trips
-3. inserts rn > 1 rows into dbo.Trips_Duplicates
-4. clears dbo.Trips_Staging
+How deduplication is performed (database-side logic)
 
-ExportDuplicatesToCsv() then exports dbo.Trips_Duplicates into duplicates.csv.
+The C# method DedupeInDatabase() executes a single SQL batch that:
+
+1. Reads all rows from dbo.Trips_Staging
+2. Adds a ROW_NUMBER() window function:
+3. ROW_NUMBER() OVER (
+    PARTITION BY tpep_pickup_datetime,
+                 tpep_dropoff_datetime,
+                 passenger_count
+    ORDER BY (SELECT 0)
+) AS rn
+4. PARTITION BY groups identical rows
+5. rn = 1 -> Treated as the first (unique) occurrence -> Inserted into **dbo.Trips** (final table)
+6. rn > 1 -> Considered an additional duplicate occurrence -> Inserted into **dbo.Trips_Duplicates** (dedupe log)
+7. After inserts -> Cleanup of staging data -> All rows removed from **dbo.Trips_Staging**
+
+After this process:
+1. dbo.Trips contains only unique trip records
+2. dbo.Trips_Duplicates contains every extra occurrence
+3. dbo.Trips_Staging becomes empty and ready for next ETL run
+
+ExportDuplicatesToCsv() is used to export dbo.Trips_Duplicates into duplicates.csv.
 
 ### For the provided dataset
 
@@ -128,15 +144,23 @@ This eliminates all leading/trailing whitespace from parsed data.
 ### 9. 10GB CSV scenario
 
 The implementation is already designed for large datasets:
-1. Streaming row processing
-2. No in-memory storage of CSV rows (IDataReader → SqlBulkCopy)
-3. Bulk insert into an unindexed staging table
-4. Deduplication happens 100% inside SQL Server
 
-Potential future scalability improvements:
-1. Partitioned ETL over multiple file chunks
-2. Parallel readers + parallel bulk copy
-3. Table partitioning by month or year
+1. Streaming row processing
+TripCsvDataReader reads rows one at a time, keeping memory usage constant regardless of file size.
+2. No CSV buffering in memory
+Data flows directly from the CSV → IDataReader → SqlBulkCopy (no List<T> / DataTable>).
+3. Bulk insert into an unindexed staging table
+Staging table avoids index overhead during ingestion for optimal throughput.
+4. Deduplication performed entirely inside SQL Server
+Eliminates the need for in-memory hashing or grouping in the C# layer.
+
+#### Potential future scalability improvements
+
+| Improvement | Description | Benefit |
+|------------|-------------|---------|
+| **Chunked / partitioned CSV ingestion** | Split a massive CSV into smaller segments (either physically or by streaming offsets) and process them sequentially or in parallel | Prevents extremely long-running transactions and improves resilience |
+| **Parallel ETL workers** | Use multiple reader threads and multiple `SqlBulkCopy` operations writing to separate staging tables (e.g., `Trips_Staging_1`, `Trips_Staging_2`, …), then merge | Makes full use of multi-core CPU and disk I/O |
+| **Incremental ETL design** | Track the latest pickup time loaded and process only new rows | Removes need for full dataset reload |
 
 ### 10. EST → UTC conversion
 
