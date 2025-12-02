@@ -8,23 +8,33 @@ internal class Program
     private const string ConnectionString =
         "Server=KYA123;Database=SimpleETLDB;Trusted_Connection=True;TrustServerCertificate=True;";
 
-    // CSV and duplicates CSV in project root
-    private static readonly string InputCsvPath =
-        Path.Combine("..", "..", "..", "sample-cab-data.csv");
+    private static readonly string LockFilePath = Path.Combine("..", "..", "..", "etl.lock");
 
-    private static readonly string DuplicatesCsvPath =
-        Path.Combine("..", "..", "..", "duplicates.csv");
+    // CSV and duplicates CSV in project root
+    private static readonly string InputCsvPath = Path.Combine("..", "..", "..", "sample-cab-data.csv");
+
+    private static readonly string DuplicatesCsvPath = Path.Combine("..", "..", "..", "duplicates.csv");
 
     static void Main(string[] args)
     {
         try
         {
             var etlService = new TripEtlService(ConnectionString);
+            bool lockExists = File.Exists(LockFilePath);
+            bool dbExists = etlService.DoesDatabaseExist();
 
-            // 1) Run ETL once
+            // 1) Check if etl.lock file exists
+            if (lockExists && dbExists)
+            {
+                Console.WriteLine("ETL was already completed previously. Skipping CSV import.");
+                RunMenu(new TripEtlService(ConnectionString));
+                return;
+            }
+
+            // 2) Run ETL once
             etlService.Run(InputCsvPath, DuplicatesCsvPath);
 
-            // 2) Enter menu loop
+            // 3) Enter menu loop
             RunMenu(etlService);
         }
         catch (Exception ex)
