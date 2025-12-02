@@ -40,7 +40,7 @@ SimpleETLProject/
           TripEtlService.cs
       /Sql
           db.sql
-      sample-cab-data.csv   (input CSV - not committed in this repo)
+      sample-cab-data.csv
       duplicates.csv        (generated output - ignored by git)
   .gitignore
   README.md
