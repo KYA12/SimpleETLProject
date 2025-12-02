@@ -150,9 +150,9 @@ All times stored in SQL are UTC.
 
 ### Handling unsafe / dirty data
 
-Malformed CSV rows are caught via MalformedLineException and skipped.
-Parsing failures inside TryBuildTripRecord are logged and skipped rather than crashing the ETL.
-All SQL queries with user input use parameterized commands → no SQL injection risk.
+1. Malformed CSV rows are caught via MalformedLineException and skipped.
+2. Parsing failures inside TryBuildTripRecord are logged and skipped rather than crashing the ETL.
+3. All SQL queries with user input use parameterized commands → no SQL injection risk.
 
 ### Row count verification
 
