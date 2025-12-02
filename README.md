@@ -44,8 +44,10 @@ SimpleETLProject/
       duplicates.csv        (generated output - ignored by git)
   .gitignore
   README.md
+---
 
-✔ How the project satisfies the task requirements
+## ✔ How the project satisfies each task requirement
+
 1. Importing CSV data into MS SQL with selected columns
 
 Only the required columns are processed:
